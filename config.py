@@ -1,3 +1,4 @@
 TRAIN = False
 DATA = 'T'
 TRANSFORM = False
+POOL = 4

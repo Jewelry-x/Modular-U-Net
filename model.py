@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import v2
 
-from config import TRAIN, TRANSFORM, DATA
+from config import TRAIN, TRANSFORM, DATA, POOL
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 use_cuda = torch.cuda.is_available()
@@ -45,27 +45,101 @@ class UNet(torch.nn.Module):
         self.conv = torch.nn.Conv2d(in_channels=n_feat, out_channels=ch_out, kernel_size=1)
 
     def forward(self, x):
-        enc1 = self.encoder1(x)
-        enc2 = self.encoder2(self.pool1(enc1))
-        enc3 = self.encoder3(self.pool2(enc2))
-        enc4 = self.encoder4(self.pool3(enc3))
+        if POOL == 4:
+            enc1 = self.encoder1(x)
+            enc2 = self.encoder2(self.pool1(enc1))
+            enc3 = self.encoder3(self.pool2(enc2))
+            enc4 = self.encoder4(self.pool3(enc3))
 
-        bottleneck = self.bottleneck(self.pool4(enc4))
+            bottleneck = self.bottleneck(self.pool4(enc4))
 
-        dec4 = self.upconv4(bottleneck)
-        dec4 = torch.cat((dec4, enc4), dim=1)
-        # dec4 = torch.cat((bottleneck, enc4), dim=1)
-        dec4 = self.decoder4(dec4)
-        dec3 = self.upconv3(dec4)
-        dec3 = torch.cat((dec3, enc3), dim=1)
-        dec3 = self.decoder3(dec3)
-        dec2 = self.upconv2(dec3)
-        dec2 = torch.cat((dec2, enc2), dim=1)
-        dec2 = self.decoder2(dec2)
-        dec1 = self.upconv1(dec2)
-        dec1 = torch.cat((dec1, enc1), dim=1)
-        dec1 = self.decoder1(dec1)
-        return torch.sigmoid(self.conv(dec1))
+            dec4 = self.upconv4(bottleneck)
+            dec4 = torch.cat((dec4, enc4), dim=1)
+            dec4 = self.decoder4(dec4)
+            dec3 = self.upconv3(dec4)
+            dec3 = torch.cat((dec3, enc3), dim=1)
+            dec3 = self.decoder3(dec3)
+            dec2 = self.upconv2(dec3)
+            dec2 = torch.cat((dec2, enc2), dim=1)
+            dec2 = self.decoder2(dec2)
+            dec1 = self.upconv1(dec2)
+            dec1 = torch.cat((dec1, enc1), dim=1)
+            dec1 = self.decoder1(dec1)
+            return torch.sigmoid(self.conv(dec1))
+        if POOL == 3:
+            enc1 = self.encoder1(x)
+            enc2 = self.encoder2(self.pool1(enc1))
+            enc3 = self.encoder3(self.pool2(enc2))
+            enc4 = self.encoder4(self.pool3(enc3))
+
+            bottleneck = self.bottleneck(enc4)
+
+            dec4 = torch.cat((bottleneck, enc4), dim=1)
+            dec4 = self.decoder4(dec4)
+            dec3 = self.upconv3(dec4)
+            dec3 = torch.cat((dec3, enc3), dim=1)
+            dec3 = self.decoder3(dec3)
+            dec2 = self.upconv2(dec3)
+            dec2 = torch.cat((dec2, enc2), dim=1)
+            dec2 = self.decoder2(dec2)
+            dec1 = self.upconv1(dec2)
+            dec1 = torch.cat((dec1, enc1), dim=1)
+            dec1 = self.decoder1(dec1)
+            return torch.sigmoid(self.conv(dec1))
+        if POOL == 2:
+            enc1 = self.encoder1(x)
+            enc2 = self.encoder2(self.pool1(enc1))
+            enc3 = self.encoder3(self.pool2(enc2))
+            enc4 = self.encoder4(enc3)
+
+            bottleneck = self.bottleneck(enc4)
+
+            dec4 = torch.cat((bottleneck, enc4), dim=1)
+            dec4 = self.decoder4(dec4)
+            dec3 = torch.cat((dec4, enc3), dim=1)
+            dec3 = self.decoder3(dec3)
+            dec2 = self.upconv2(dec3)
+            dec2 = torch.cat((dec2, enc2), dim=1)
+            dec2 = self.decoder2(dec2)
+            dec1 = self.upconv1(dec2)
+            dec1 = torch.cat((dec1, enc1), dim=1)
+            dec1 = self.decoder1(dec1)
+            return torch.sigmoid(self.conv(dec1))
+        if POOL == 1:
+            enc1 = self.encoder1(x)
+            enc2 = self.encoder2(self.pool1(enc1))
+            enc3 = self.encoder3(enc2)
+            enc4 = self.encoder4(enc3)
+
+            bottleneck = self.bottleneck(enc4)
+
+            dec4 = torch.cat((bottleneck, enc4), dim=1)
+            dec4 = self.decoder4(dec4)
+            dec3 = torch.cat((dec4, enc3), dim=1)
+            dec3 = self.decoder3(dec3)
+            dec2 = torch.cat((dec3, enc2), dim=1)
+            dec2 = self.decoder2(dec2)
+            dec1 = self.upconv1(dec2)
+            dec1 = torch.cat((dec1, enc1), dim=1)
+            dec1 = self.decoder1(dec1)
+            return torch.sigmoid(self.conv(dec1))
+        if POOL == 0:
+            enc1 = self.encoder1(x)
+            enc2 = self.encoder2(enc1)
+            enc3 = self.encoder3(enc2)
+            enc4 = self.encoder4(enc3)
+
+            bottleneck = self.bottleneck(enc4)
+
+            dec4 = torch.cat((bottleneck, enc4), dim=1)
+            dec4 = self.decoder4(dec4)
+            dec3 = torch.cat((dec4, enc3), dim=1)
+            dec3 = self.decoder3(dec3)
+            dec2 = torch.cat((dec3, enc2), dim=1)
+            dec2 = self.decoder2(dec2)
+            dec1 = torch.cat((dec2, enc1), dim=1)
+            dec1 = self.decoder1(dec1)
+            return torch.sigmoid(self.conv(dec1))
 
     @staticmethod
     def _block(ch_in, n_feat):
