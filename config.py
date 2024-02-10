@@ -11,6 +11,8 @@ EARLY_STOPPING_COUNT = 50
 RESULT_PATH = "./result"
 DATA_PATH = "data"
 
+NOTIFY = True
+
 # Transformations
 HORIZONTAL_FLIP = False
 VERTICAL_FLIP = False

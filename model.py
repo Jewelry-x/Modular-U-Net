@@ -1,6 +1,7 @@
 # This is part of the tutorial materials in the UCL Module MPHY0041: Machine Learning in Medical Imaging
 import os
 import numpy as np
+import winsound
 
 from openpyxl import Workbook
 
@@ -515,3 +516,6 @@ if __name__ == "__main__":
     if TRAIN:
         train()
     test()
+
+    if NOTIFY:
+        winsound.Beep(1000, 500)
