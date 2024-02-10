@@ -436,7 +436,9 @@ def train():
             torch.save(
                 {
                     "model": model,
+                    "data": "Phantom" if DATA == "P" or DATA == "Phantom" else "T1-T6",
                     "learning_rate": LEARNING_RATE,
+                    "pools": POOL,
                     "data_augmentations": augmentations,
                     "optimizer": type(optimizer).__name__,
                     "epoch": epoch + 1,
@@ -457,28 +459,37 @@ def train():
     print("Training done.")
 
 
-def test():
+def test(other_data):
     _, test_loader = load_data()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     whole_model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))
 
-    if "learning_rate" in whole_model:
-        print(
-            "Learning rate: "
-            + str(whole_model.get("learning_rate"))
-            + "\nData Augmentations: "
-            + str(whole_model.get("data_augmentations"))
-            + "\nOptimizer: "
-            + str(whole_model.get("optimizer"))
-            + "\nEpoch Saved: "
-            + str(whole_model.get("epoch"))
-        )
+    if not other_data:
+        if "data" in whole_model:
+            print("Data trained on: " + str(whole_model.get("data")))
+        if "learning_rate" in whole_model:
+            print("Learning rate: " + str(whole_model.get("learning_rate")))
+        if "pool" in whole_model:
+            print("Pooling layers used: " + str(whole_model.get("pool")))
 
+            global POOL
+            POOL = whole_model.get("pool")
+        if "data_augmentations" in whole_model:
+            print("Data Augmentations: " + str(whole_model.get("data_augmentations")))
+        if "optimizer" in whole_model:
+            print("Optimizer: " + str(whole_model.get("optimizer")))
+        if "epoch" in whole_model:
+            print("Epoch Saved: " + str(whole_model.get("epoch")))
+
+    if "model" in whole_model:
         model = whole_model["model"]
     else:
         model = whole_model
+
+    data_variable = "Phantom" if DATA == "P" or DATA == "Phantom" else "T1-T6"
+    print("\n\nData testing on: " + data_variable)
 
     model = model.to(device)
     model.eval()
@@ -490,8 +501,13 @@ def test():
         images = images.cuda()
         output = model(images)
         predicted = np.float32(np.squeeze(output.detach().cpu().numpy(), axis=0) > 0.5)
-        # filepath_to_save = os.path.join(RESULT_PATH,"label_test-pt.npy")
-        # np.save(filepath_to_save, predicted)
+
+        global CREATE_TEST_MASK
+        if CREATE_TEST_MASK:
+            filepath_to_save = os.path.join(RESULT_PATH, "label_test-pt.npy")
+            np.save(filepath_to_save, predicted)
+            CREATE_TEST_MASK = False
+
         gt = np.squeeze(labels.detach().cpu().numpy(), axis=0)
         if y_pred_test.size == 0:
             y_pred_test = predicted
@@ -515,7 +531,11 @@ def test():
 if __name__ == "__main__":
     if TRAIN:
         train()
-    test()
+    test(False)
+
+    if TEST_ON_BOTH_DATA:
+        DATA = "T" if DATA == "P" or DATA == "Phantom" else "P"
+        test(True)
 
     if NOTIFY:
         winsound.Beep(1000, 500)
