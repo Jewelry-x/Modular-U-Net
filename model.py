@@ -362,7 +362,11 @@ def train():
     else:
         augmentations = ""
 
+    no_loss_change = 0
+
     for epoch in range(num_epochs):
+        no_loss_change = +1
+
         running_train_loss = 0.0
         correct_train = 0
         total_train = 0
@@ -425,6 +429,7 @@ def train():
         model_saved = False
 
         if epoch_val_loss < best_eval_loss:
+            no_loss_change = 0
             model_saved = True
             best_eval_loss = epoch_val_loss
             torch.save(
@@ -445,6 +450,9 @@ def train():
 
         workbook.save("./result/progress.xlsx")
 
+        if no_loss_change == EARLY_STOPPING_COUNT and EARLY_STOPPING:
+            break
+
     print("Training done.")
 
 
@@ -463,6 +471,8 @@ def test():
             + str(whole_model.get("data_augmentations"))
             + "\nOptimizer: "
             + str(whole_model.get("optimizer"))
+            + "\nEpoch Saved: "
+            + str(whole_model.get("epoch"))
         )
 
         model = whole_model["model"]
