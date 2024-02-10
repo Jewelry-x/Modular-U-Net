@@ -16,6 +16,15 @@ use_cuda = torch.cuda.is_available()
 
 augmentations = []
 
+if HORIZONTAL_FLIP:
+    augmentations.append("Horizontal Flip")
+if VERTICAL_FLIP:
+    augmentations.append("Vertical Flip")
+if SHEAR:
+    augmentations.append("Shear")
+if GAUSSIAN_BLUR:
+    augmentations.append("Gaussian Blur")
+
 
 ## network class
 class UNet(torch.nn.Module):
@@ -260,16 +269,6 @@ class NPyDataset(Dataset):
         self.transform = self._get_transform()
         self.Phantom = True if DATA == "P" or DATA == "Phantom" else False
 
-        global augmentations
-        if HORIZONTAL_FLIP:
-            augmentations.append("Horizontal Flip")
-        if VERTICAL_FLIP:
-            augmentations.append("Vertical Flip")
-        if SHEAR:
-            augmentations.append("Shear")
-        if GAUSSIAN_BLUR:
-            augmentations.append("Gaussian Blur")
-
     def __len__(self):
         if self.Phantom:
             return 1400 if self.is_train else 600
@@ -366,7 +365,7 @@ def train():
     no_loss_change = 0
 
     for epoch in range(num_epochs):
-        no_loss_change = +1
+        no_loss_change += 1
 
         running_train_loss = 0.0
         correct_train = 0
@@ -374,7 +373,6 @@ def train():
         train_iou = 0.0
 
         for _, (images, labels) in enumerate(train_loader):
-            # step += 1
             if use_cuda:
                 images, labels = images.cuda(), labels.cuda()
 

@@ -1,7 +1,6 @@
 DATA = "P"
 TRAIN = True
 TEST_ON_BOTH_DATA = False
-TRANSFORM = False
 POOL = 4
 LEARNING_RATE = 1e-2
 TOTAL_EPOCHS = 500
@@ -17,6 +16,8 @@ DATA_PATH = "data"
 NOTIFY = True
 
 # Transformations
+TRANSFORM = False
+
 HORIZONTAL_FLIP = False
 VERTICAL_FLIP = False
 SHEAR = False
