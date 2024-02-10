@@ -259,6 +259,16 @@ class NPyDataset(Dataset):
         self.transform = self._get_transform()
         self.Phantom = True if DATA == "P" or DATA == "Phantom" else False
 
+        global augmentations
+        if HORIZONTAL_FLIP:
+            augmentations.append("Horizontal Flip")
+        if VERTICAL_FLIP:
+            augmentations.append("Vertical Flip")
+        if SHEAR:
+            augmentations.append("Shear")
+        if GAUSSIAN_BLUR:
+            augmentations.append("Gaussian Blur")
+
     def __len__(self):
         if self.Phantom:
             return 1400 if self.is_train else 600
@@ -297,16 +307,12 @@ class NPyDataset(Dataset):
 
             if HORIZONTAL_FLIP:
                 transformations.append(v2.RandomHorizontalFlip(p=0.5))
-                augmentations.append("Horizontal Flip")
             if VERTICAL_FLIP:
                 transformations.append(v2.RandomVerticalFlip(p=0.5))
-                augmentations.append("Vertical Flip")
             if SHEAR:
                 transformations.append(v2.RandomAffine(0, shear=15))
-                augmentations.append("Shear")
             if GAUSSIAN_BLUR:
                 transformations.append(v2.GaussianBlur(kernel_size=3))
-                augmentations.append("Gaussian Blur")
             # v2.ColorJitter(brightness=(0.5, 2.0)),
             # v2.RandomAffine(0, translate=(0.2, 0.2))
             # v2.Resize(size=(128, 128)),
@@ -314,9 +320,9 @@ class NPyDataset(Dataset):
             # v2.Normalize(mean=[0.5], std=[0.5]),
             # v2.RandomRotation(degrees=10),
 
-            return v2.Compose()
-        else:
-            return None
+            if transformations:
+                return v2.Compose(transformations)
+        return None
 
 
 def load_data():
@@ -339,7 +345,7 @@ def train():
         model.cuda()
 
     # optimisation loop
-    num_epochs = int(500)
+    num_epochs = int(TOTAL_EPOCHS)
     best_eval_loss = 9999
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
@@ -350,6 +356,7 @@ def train():
 
     train_loader, test_loader = load_data()
 
+    global augmentations
     if augmentations:
         augmentations = ", ".join(augmentations)
     else:
@@ -423,9 +430,9 @@ def train():
             torch.save(
                 {
                     "model": model,
-                    "learning rate": LEARNING_RATE,
-                    "data augmentations": augmentations,
-                    "optimizer_state_dict": optimizer.state_dict(),
+                    "learning_rate": LEARNING_RATE,
+                    "data_augmentations": augmentations,
+                    "optimizer": type(optimizer).__name__,
                     "epoch": epoch + 1,
                 },
                 os.path.join(RESULT_PATH, "saved_model_pt"),
@@ -446,7 +453,21 @@ def test():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))["model"]
+    whole_model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))
+
+    if "learning_rate" in whole_model:
+        print(
+            "Learning rate: "
+            + str(whole_model.get("learning_rate"))
+            + "\nData Augmentations: "
+            + str(whole_model.get("data_augmentations"))
+            + "\nOptimizer: "
+            + str(whole_model.get("optimizer"))
+        )
+
+        model = whole_model["model"]
+    else:
+        model = whole_model
 
     model = model.to(device)
     model.eval()

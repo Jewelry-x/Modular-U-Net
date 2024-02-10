@@ -1,8 +1,10 @@
-TRAIN = False
-DATA = "T"
+DATA = "P"
+TRAIN = True
 TRANSFORM = False
 POOL = 4
 LEARNING_RATE = 1e-2
+TOTAL_EPOCHS = 500
+
 RESULT_PATH = "./result"
 DATA_PATH = "data"
 
