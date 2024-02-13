@@ -11,6 +11,8 @@ LOAD = True
 EARLY_STOPPING = True
 EARLY_STOPPING_COUNT = 50
 
+TEST = True
+
 CREATE_TEST_MASK = True
 
 RESULT_PATH = "./result"

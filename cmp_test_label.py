@@ -41,6 +41,6 @@ if os.path.exists(T_label):
 
     plt.subplot(2, 3, 6)
     plt.imshow(np.squeeze(T1T6_created), cmap="gray")
-    plt.title("T1T6 Model Created Mask")
+    plt.title("T1-T6 Model Created Mask")
 
 plt.show()

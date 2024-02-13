@@ -599,7 +599,7 @@ def create_folder():
         and "image_size" in whole_model
         and "learning_rate" in whole_model
         and "pools" in whole_model
-        and "data_augmentation" in whole_model
+        and "data_augmentations" in whole_model
     ):
         folder_path = os.path.join(
             "models",
@@ -626,16 +626,18 @@ if __name__ == "__main__":
         else:
             train()
 
-    if CREATE_TEST_MASK and TEST_ON_BOTH_DATA:
-        redo_test_mask = True
+    if TEST:
+        redo_test_mask = False
+        if CREATE_TEST_MASK and TEST_ON_BOTH_DATA:
+            redo_test_mask = True
 
-    test(False)
+        test(False)
 
-    if TEST_ON_BOTH_DATA:
-        DATA = "T" if DATA == "P" or DATA == "Phantom" else "P"
-        if redo_test_mask:
-            CREATE_TEST_MASK = True
-        test(True)
+        if TEST_ON_BOTH_DATA:
+            DATA = "T" if DATA == "P" or DATA == "Phantom" else "P"
+            if redo_test_mask:
+                CREATE_TEST_MASK = True
+            test(True)
 
     if CREATE_FOLDER:
         create_folder()
