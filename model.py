@@ -601,6 +601,10 @@ def create_folder():
         and "pools" in whole_model
         and "data_augmentations" in whole_model
     ):
+        data_augmentations = whole_model.get("data_augmentations")
+        if data_augmentations == "":
+            data_augmentations = "None"
+
         folder_path = os.path.join(
             "models",
             str(whole_model.get("data")),
@@ -608,7 +612,7 @@ def create_folder():
             str(whole_model.get("image_size")),
             str(whole_model.get("learning_rate")),
             str(whole_model.get("pools")),
-            str(whole_model.get("data_augmentations")),
+            data_augmentations,
         )
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
