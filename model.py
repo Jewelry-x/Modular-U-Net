@@ -337,24 +337,70 @@ def load_data():
 
 
 ## training
-def train():
-    model = UNet(
-        1, 1
-    )  # input 1-channel 3d volume and output 1-channel segmentation (a probability map)
-    if use_cuda:
-        model.cuda()
+def train(load=False):
+    train_loader, test_loader = load_data()
 
-    # optimisation loop
+    if not load:
+        print("Starting new model")
+        model = UNet(
+            1, 1
+        )  # input 1-channel 3d volume and output 1-channel segmentation (a probability map)
+        if use_cuda:
+            model.cuda()
+
+        best_eval_loss = 9999
+    else:
+        print("Loading model")
+
+        if not os.path.exists(os.path.join(RESULT_PATH, "saved_model_pt")):
+            print("Model not in correct directory (.result/)")
+            exit()
+        whole_model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))
+        print_model_values(whole_model)
+
+        if "model" in whole_model:
+            model = whole_model["model"]
+        else:
+            model = whole_model
+
+        if "pools" in whole_model:
+            print("Pooling layers used: " + str(whole_model.get("pools")))
+
+            global POOL
+            POOL = whole_model.get("pools")
+
+        y_pred_test = np.array([])
+        ytest = np.array([])
+        for _, (images, labels) in enumerate(test_loader):
+
+            images = images.cuda()
+            output = model(images)
+            # predicted = np.argmax(np.squeeze(output.detach().cpu().numpy()),axis=0)
+            # predicted = np.float32(np.squeeze(output.detach().cpu().numpy()))
+            predicted = np.float32(
+                np.squeeze(output.detach().cpu().numpy(), axis=0) > 0.5
+            )
+            # filepath_to_save = os.path.join(RESULT_PATH,"label_test-pt.npy")
+            # np.save(filepath_to_save, predicted)
+            gt = np.squeeze(labels.detach().cpu().numpy(), axis=0)
+            if y_pred_test.size == 0:
+                y_pred_test = predicted
+                ytest = gt
+            else:
+                y_pred_test = np.concatenate((y_pred_test, predicted), axis=0)
+                ytest = np.concatenate((ytest, gt), axis=0)
+
+        _, dice = calculate_average_metrics(ytest, y_pred_test)
+
+        best_eval_loss = 1 - dice
+
     num_epochs = int(TOTAL_EPOCHS)
-    best_eval_loss = 9999
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
     os.makedirs("result", exist_ok=True)
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.append(["Epoch", "Train Loss", "Val Loss", "Val IoU", "Model Saved"])
-
-    train_loader, test_loader = load_data()
 
     global augmentations
     if augmentations:
@@ -438,8 +484,11 @@ def train():
                     "learning_rate": LEARNING_RATE,
                     "pools": POOL,
                     "data_augmentations": augmentations,
+                    "image_size": IMAGE_SIZE,
                     "optimizer": type(optimizer).__name__,
                     "epoch": epoch + 1,
+                    "early_stopping": str(EARLY_STOPPING),
+                    "early_stopping_epochs": str(EARLY_STOPPING_COUNT),
                 },
                 os.path.join(RESULT_PATH, "saved_model_pt"),
             )
@@ -465,21 +514,10 @@ def test(other_data):
     whole_model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))
 
     if not other_data:
-        if "data" in whole_model:
-            print("Data trained on: " + str(whole_model.get("data")))
-        if "learning_rate" in whole_model:
-            print("Learning rate: " + str(whole_model.get("learning_rate")))
-        if "pool" in whole_model:
-            print("Pooling layers used: " + str(whole_model.get("pool")))
-
+        print_model_values(whole_model)
+        if "pools" in whole_model:
             global POOL
-            POOL = whole_model.get("pool")
-        if "data_augmentations" in whole_model:
-            print("Data Augmentations: " + str(whole_model.get("data_augmentations")))
-        if "optimizer" in whole_model:
-            print("Optimizer: " + str(whole_model.get("optimizer")))
-        if "epoch" in whole_model:
-            print("Epoch Saved: " + str(whole_model.get("epoch")))
+            POOL = whole_model.get("pools")
 
     if "model" in whole_model:
         model = whole_model["model"]
@@ -502,7 +540,10 @@ def test(other_data):
 
         global CREATE_TEST_MASK
         if CREATE_TEST_MASK:
-            filepath_to_save = os.path.join(RESULT_PATH, "label_test-pt.npy")
+            if DATA == "P" or DATA == "Phantom":
+                filepath_to_save = os.path.join(RESULT_PATH, "PTest_test_label.npy")
+            else:
+                filepath_to_save = os.path.join(RESULT_PATH, "TTest_test_label.npy")
             np.save(filepath_to_save, predicted)
             CREATE_TEST_MASK = False
 
@@ -526,14 +567,78 @@ def test(other_data):
     print("Final DC:", dice_coefficient_val)
 
 
+def print_model_values(whole_model):
+    if "data" in whole_model:
+        print("Data trained on: " + str(whole_model.get("data")))
+    if "learning_rate" in whole_model:
+        print("Learning rate: " + str(whole_model.get("learning_rate")))
+    if "pools" in whole_model:
+        print("Pooling layers used: " + str(whole_model.get("pools")))
+    if "data_augmentations" in whole_model:
+        print("Data Augmentations: " + str(whole_model.get("data_augmentations")))
+    if "image_size" in whole_model:
+        print("Image Size: " + str(whole_model.get("image_size")))
+    if "optimizer" in whole_model:
+        print("Optimizer: " + str(whole_model.get("optimizer")))
+    if "epoch" in whole_model:
+        print("Epoch Saved: " + str(whole_model.get("epoch")))
+    if "early_stopping" in whole_model:
+        print("Early Stopping: " + str(whole_model.get("early_stopping")))
+    if "early_stopping_epochs" in whole_model:
+        print(
+            "Early Stopping Epoch Limit: "
+            + str(whole_model.get("early_stopping_epochs"))
+        )
+
+
+def create_folder():
+    whole_model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))
+    if (
+        "optimizer" in whole_model
+        and "data" in whole_model
+        and "image_size" in whole_model
+        and "learning_rate" in whole_model
+        and "pools" in whole_model
+        and "data_augmentation" in whole_model
+    ):
+        folder_path = os.path.join(
+            "models",
+            str(whole_model.get("data")),
+            str(whole_model.get("optimizer")),
+            str(whole_model.get("image_size")),
+            str(whole_model.get("learning_rate")),
+            str(whole_model.get("pools")),
+            str(whole_model.get("data_augmentations")),
+        )
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+    else:
+        print("Model too outdated to create folder automatically")
+
+
 if __name__ == "__main__":
+    if not os.path.exists("result"):
+        os.makedirs("result")
+
     if TRAIN:
-        train()
+        if LOAD:
+            train(True)
+        else:
+            train()
+
+    if CREATE_TEST_MASK and TEST_ON_BOTH_DATA:
+        redo_test_mask = True
+
     test(False)
 
     if TEST_ON_BOTH_DATA:
         DATA = "T" if DATA == "P" or DATA == "Phantom" else "P"
+        if redo_test_mask:
+            CREATE_TEST_MASK = True
         test(True)
+
+    if CREATE_FOLDER:
+        create_folder()
 
     if NOTIFY:
         winsound.Beep(1000, 500)
