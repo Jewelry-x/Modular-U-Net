@@ -1,6 +1,6 @@
 # Catheter-U-Net
 
-Customizable Catheter-U-Net model used to optimized the transfer learning between Phantom Data (generated) and T1-T6 data (real world data). 
+Customizable Catheter-U-Net model used to optimize the transfer learning between Phantom Data (data on test equipment) and T1-T6 data (videos of catheter procedures). 
 
 ## Table of Contents
 
@@ -14,24 +14,36 @@ For this project you should have Python 3.9+ installed and preferably CUDA to si
 
 ## Installation
 
-1. Clone the repository:
+### 1. Clone the repository
 
-Clone the respotitory to your desired location
+Clone the respotitory to your desired location.
 
-2. Set up virtual environment
+### 2.a. Set up virtual environment (Manual, Recommended) 
 
-Once installed, run script 'setupVENV.sh' to set up the virtual environment for the project.
+In order to set up manually the virtual environment you need to run the following commands.
+    
+1. Run `python -m venv cath` to create the virtual environment.
+
+2. Nagivate into `cath/Scipts` and run the `activate` script.
+
+3. Go to the [Pytorch website](https://pytorch.org/get-started/locally/) and find the suitable Pytorch version and install it by running the command provided.
+
+4. Run `pip install openpyxl opencv-python` to have all required packages.
+
+### 2.b. Set up virtual environment (Automatic)
+
+Run script `setupVENV.sh` found in the `utils/` directory to set up the virtual environment for the project.
 
 ## Usage
 
-1. Activate virtual environment
+### 1. Activate virtual environment
 
-Nagivate into the scripts folder in the virtual environment and use `activate`.
+Nagivate into the scripts folder in the virtual environment and use `activate` if not already active.
 
-2. Check config.py
+### 2. Set config.py
 
 Check the config.py file to change any settings required such as data location and result location.
 
-3. Run the model
+### 3. Run the model
 
-Use command 'python model.py' to run the model.
+Use command `python model.py` to run the model.
