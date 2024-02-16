@@ -17,13 +17,13 @@ use_cuda = torch.cuda.is_available()
 augmentations = []
 
 if HORIZONTAL_FLIP:
-    augmentations.append("Horizontal Flip")
+    augmentations.append("\nHorizontal Flip")
 if VERTICAL_FLIP:
-    augmentations.append("Vertical Flip")
+    augmentations.append("\nVertical Flip")
 if SHEAR:
-    augmentations.append("Shear")
+    augmentations.append("\nShear")
 if GAUSSIAN_BLUR:
-    augmentations.append("Gaussian Blur")
+    augmentations.append("\nGaussian Blur")
 
 
 ## network class
@@ -565,6 +565,17 @@ def test(other_data):
     iou_val, dice_coefficient_val = calculate_average_metrics(ytest, y_pred_test)
     print("Final IOU:", iou_val)
     print("Final DC:", dice_coefficient_val)
+
+    if DATA == "P" or DATA == "Phantom" and not "phantom_IOU" in whole_model:
+        whole_model["phantom_IOU"] = iou_val
+        whole_model["phantom_DC"] = dice_coefficient_val
+
+        torch.save(whole_model, os.path.join(RESULT_PATH, "saved_model_pt"))
+    if DATA == "T" or DATA == "T1-T6" and not "T1T6_IOU" in whole_model:
+        whole_model["T1T6_IOU"] = iou_val
+        whole_model["T1T6_DC"] = dice_coefficient_val
+
+        torch.save(whole_model, os.path.join(RESULT_PATH, "saved_model_pt"))
 
 
 def print_model_values(whole_model):

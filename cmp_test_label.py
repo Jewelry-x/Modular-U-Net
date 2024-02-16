@@ -19,6 +19,14 @@ if os.path.exists(model_path):
         model_details += (
             "Learning rate: " + str(whole_model.get("learning_rate")) + "\n"
         )
+    if "phantom_IOU" in whole_model:
+        model_details += "Phantom IoU: " + str(whole_model.get("phantom_IOU")) + "\n"
+    if "phantom_DC" in whole_model:
+        model_details += "Phantom DC: " + str(whole_model.get("phantom_DC")) + "\n"
+    if "T1T6_IOU" in whole_model:
+        model_details += "T1T6 IoU: " + str(whole_model.get("T1T6_IOU")) + "\n"
+    if "T1T6_DC" in whole_model:
+        model_details += "T1T6 DC: " + str(whole_model.get("T1T6_DC")) + "\n"
     if "pools" in whole_model:
         model_details += "Pooling layers used: " + str(whole_model.get("pools")) + "\n"
     if "data_augmentations" in whole_model:
@@ -86,7 +94,7 @@ axs[0, 3].axis("off")
 plt.subplots_adjust(bottom=0.1, top=0.9)
 
 # Add model details below the images
-axs[1, 3].text(0, 0.5, model_details, fontsize=14, ha="left", va="center")
+axs[0, 3].text(0, 0.5, model_details, fontsize=14, ha="left", va="center")
 axs[1, 3].axis("off")
 
 plt.show()
