@@ -1,49 +1,37 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from config import * 
 
-P_label = "result\PTest_test_label.npy"
-T_label = "result\TTest_test_label.npy"
+# Get the list of files in the directory
+all_files = os.listdir(RESULT_PATH)
 
-# Create subplots for images
-fig, axs = plt.subplots(2, 3)
+# Filter the files based on the extension
+filtered_files = [file for file in all_files if file.endswith(".npy")]
 
-# Check if P_label exists
-if os.path.exists(P_label):
-    Phantom_created = np.load(P_label)
-    Pimage = np.load("data\\PTest\\frame_0000.npy")
-    Pmask = np.load("data\\PTest_label\\frame_0000.npy")
+# Create subplots for images and model details
+fig, axs = plt.subplots(len(filtered_files), 3)
 
-    # Plot Phantom images with overlap
-    axs[0, 0].imshow(np.squeeze(Pimage), cmap="gray")
-    axs[0, 0].imshow(np.squeeze(Pmask), cmap="jet", alpha=0.5)
-    axs[0, 0].set_title("Original Image with Mask")
+idx = 0
+for file in filtered_files:
+    data = file[:-15]
+    created_mask = np.load(os.path.join(RESULT_PATH, file))
+    original_mask = np.load(os.path.join(DATA_PATH, TESTING_DATA_MASK_LOCATION[TESTING_DATA.index(data)], MASK_DEFINITION % 0000))
+    original_image = np.load(os.path.join(DATA_PATH, TESTING_DATA_LOCATION[TESTING_DATA.index(data)], IMAGE_DEFINITION % 0000) )
 
-    axs[0, 1].imshow(np.squeeze(Pimage), cmap="gray")
-    axs[0, 1].imshow(np.squeeze(Phantom_created), cmap="jet", alpha=0.5)
-    axs[0, 1].set_title("Original Image with Created Mask")
+ 
+    axs[idx, 0].imshow(np.squeeze(original_image), cmap="gray")
+    axs[idx, 0].set_title(data + " Original Image with Mask")
+    axs[idx, 0].imshow(np.squeeze(original_mask), cmap="jet", alpha=0.5)
 
-    axs[0, 2].imshow(np.squeeze(Pmask), cmap="gray")
-    axs[0, 2].imshow(np.squeeze(Phantom_created), cmap="jet", alpha=0.5)
-    axs[0, 2].set_title("Original and Created Mask Overlap")
+    axs[idx, 1].imshow(np.squeeze(original_image), cmap="gray")
+    axs[idx, 1].imshow(np.squeeze(created_mask), cmap="jet", alpha=0.5)
+    axs[idx, 1].set_title(data + " Original Image with Created Mask")
 
-# Check if T_label exists
-if os.path.exists(T_label):
-    T1T6_created = np.load(T_label)
-    Timage = np.load("data\\TTest\\frame_0000.npy")
-    Tmask = np.load("data\\TTest_label\\frame_0000.npy")
+    axs[idx, 2].imshow(np.squeeze(original_mask), cmap="gray")
+    axs[idx, 2].imshow(np.squeeze(created_mask), cmap="jet", alpha=0.5)
+    axs[idx, 2].set_title(data + " Original and Created Mask Overlap")
 
-    # Plot T1-T6 images with overlap
-    axs[1, 0].imshow(np.squeeze(Timage), cmap="gray")
-    axs[1, 0].imshow(np.squeeze(Tmask), cmap="jet", alpha=0.5)
-    axs[1, 0].set_title("Original Image with Mask")
-
-    axs[1, 1].imshow(np.squeeze(Timage), cmap="gray")
-    axs[1, 1].imshow(np.squeeze(T1T6_created), cmap="jet", alpha=0.5)
-    axs[1, 1].set_title("Original Image with Created Mask")
-
-    axs[1, 2].imshow(np.squeeze(Tmask), cmap="gray")
-    axs[1, 2].imshow(np.squeeze(T1T6_created), cmap="jet", alpha=0.5)
-    axs[1, 2].set_title("Original and Created Mask Overlap")
+    idx += 1
 
 plt.show()

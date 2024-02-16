@@ -3,14 +3,11 @@ import numpy as np
 from model import UNet
 import torch
 import os
-
-P_label = "result\PTest_test_label.npy"
-T_label = "result\TTest_test_label.npy"
-model_path = "result\saved_model_pt"
+from config import *
 
 # Check if the model file exists
-if os.path.exists(model_path):
-    whole_model = torch.load(model_path)
+if os.path.exists(os.path.join(RESULT_PATH, "saved_model_pt")):
+    whole_model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))
     # Construct the model details string
     model_details = ""
     if "data" in whole_model:
@@ -19,20 +16,17 @@ if os.path.exists(model_path):
         model_details += (
             "Learning rate: " + str(whole_model.get("learning_rate")) + "\n"
         )
-    if "phantom_IOU" in whole_model:
-        model_details += "Phantom IoU: " + str(whole_model.get("phantom_IOU")) + "\n"
-    if "phantom_DC" in whole_model:
-        model_details += "Phantom DC: " + str(whole_model.get("phantom_DC")) + "\n"
-    if "T1T6_IOU" in whole_model:
-        model_details += "T1T6 IoU: " + str(whole_model.get("T1T6_IOU")) + "\n"
-    if "T1T6_DC" in whole_model:
-        model_details += "T1T6 DC: " + str(whole_model.get("T1T6_DC")) + "\n"
     if "pools" in whole_model:
         model_details += "Pooling layers used: " + str(whole_model.get("pools")) + "\n"
+    if "reverse_pools" in whole_model:
+        model_details += "Reverse pooling used: " + str(whole_model.get("reverse_pools")) + "\n"
     if "data_augmentations" in whole_model:
         model_details += (
             "Data Augmentations: " + str(whole_model.get("data_augmentations")) + "\n"
         )
+    if "tested_on" in whole_model:
+        for i, data in enumerate(whole_model["tested_on"]):
+            model_details += f"{data} IOU: {whole_model['IOU'][i]}\n{data} DC: {whole_model['DC'][i]}\n"
     if "image_size" in whole_model:
         model_details += "Image Size: " + str(whole_model.get("image_size")) + "\n"
     if "optimizer" in whole_model:
@@ -52,49 +46,38 @@ if os.path.exists(model_path):
 else:
     model_details = "Model not found or loaded"
 
-# Create subplots for images and model details
-fig, axs = plt.subplots(2, 4, gridspec_kw={"width_ratios": [1, 1, 1, 0.5]})
 
-# Check if P_label exists
-if os.path.exists(P_label):
-    Phantom_created = np.load(P_label)
-    Pimage = np.load("data\\PTest\\frame_0000.npy")
-    Pmask = np.load("data\\PTest_label\\frame_0000.npy")
+# Get the list of files in the directory
+all_files = os.listdir(RESULT_PATH)
+
+# Filter the files based on the extension
+filtered_files = [file for file in all_files if file.endswith(".npy")]
+
+# Create subplots for images and model details
+fig, axs = plt.subplots(len(filtered_files), 4, gridspec_kw={"width_ratios": [1, 1, 1, 0.5]})
+
+idx = 0
+for file in filtered_files:
+    data = file[:-15]
+    created_mask = np.load(os.path.join(RESULT_PATH, file))
+    original_mask = np.load(os.path.join(DATA_PATH, TESTING_DATA_MASK_LOCATION[TESTING_DATA.index(data)], MASK_DEFINITION % 0000))
+    original_image = np.load(os.path.join(DATA_PATH, TESTING_DATA_LOCATION[TESTING_DATA.index(data)], IMAGE_DEFINITION % 0000) )
 
     # Plot Phantom images
-    axs[0, 0].imshow(np.squeeze(Pimage), cmap="gray")
-    axs[0, 0].set_title("Phantom Original Image")
+    axs[idx, 0].imshow(np.squeeze(original_image), cmap="gray")
+    axs[idx, 0].set_title(data + " Original Image")
 
-    axs[0, 1].imshow(np.squeeze(Pmask), cmap="gray")
-    axs[0, 1].set_title("Phantom Mask")
+    axs[idx, 1].imshow(np.squeeze(original_mask), cmap="gray")
+    axs[idx, 1].set_title(data + " Mask")
 
-    axs[0, 2].imshow(np.squeeze(Phantom_created), cmap="gray")
-    axs[0, 2].set_title("Phantom Model Created Mask")
+    axs[idx, 2].imshow(np.squeeze(created_mask), cmap="gray")
+    axs[idx, 2].set_title(data + " Model Created Mask")
 
-# Check if T_label exists
-if os.path.exists(T_label):
-    T1T6_created = np.load(T_label)
-    Timage = np.load("data\\TTest\\frame_0000.npy")
-    Tmask = np.load("data\\TTest_label\\frame_0000.npy")
+    axs[idx, 3].axis("off")
 
-    # Plot T1-T6 images
-    axs[1, 0].imshow(np.squeeze(Timage), cmap="gray")
-    axs[1, 0].set_title("T1-T6 Original Image")
-
-    axs[1, 1].imshow(np.squeeze(Tmask), cmap="gray")
-    axs[1, 1].set_title("T1-T6 Mask")
-
-    axs[1, 2].imshow(np.squeeze(T1T6_created), cmap="gray")
-    axs[1, 2].set_title("T1-T6 Model Created Mask")
+    idx += 1
 
 # Hide ticks and labels for the empty subplot
-axs[0, 3].axis("off")
-
-# Adjust layout to add space for the text
-plt.subplots_adjust(bottom=0.1, top=0.9)
-
-# Add model details below the images
 axs[0, 3].text(0, 0.5, model_details, fontsize=14, ha="left", va="center")
-axs[1, 3].axis("off")
 
 plt.show()

@@ -193,28 +193,33 @@ class NPyDataset(Dataset):
         self.folder_name = folder_name
         self.is_train = is_train
         self.transform = self._get_transform()
-        self.Phantom = True if DATA == "P" or DATA == "Phantom" else False
 
     def __len__(self):
-        if self.Phantom:
-            return 1400 if self.is_train else 600
-        return 845 if self.is_train else 362
+        return (
+            TRAINING_DATA_COUNT[TRAINING_DATA.index(DATA)]
+            if self.is_train
+            else TESTING_DATA_COUNT[TESTING_DATA.index(DATA)]
+        )
 
     def __getitem__(self, idx):
         if self.is_train:
-            if self.Phantom:
-                image = self._load_npy("PTrain/frame_%04d.npy" % idx)
-                label = self._load_npy("PTrain_label/frame_%04d.npy" % idx)
-            else:
-                image = self._load_npy("TTrain/frame_%04d.npy" % idx)
-                label = self._load_npy("TTrain_label/frame_%04d.npy" % idx)
+            image = self._load_npy(
+                os.path.join(
+                    TRAINING_DATA_LOCATION[TRAINING_DATA.index(DATA)],
+                    IMAGE_DEFINITION % idx,
+                )
+            )
+            label = self._load_npy(
+                os.path.join(TRAINING_DATA_MASK_LOCATION[TRAINING_DATA.index(DATA)], MASK_DEFINITION % idx)
+            )
         else:
-            if self.Phantom:
-                image = self._load_npy("PTest/frame_%04d.npy" % idx)
-                label = self._load_npy("PTest_label/frame_%04d.npy" % idx)
-            else:
-                image = self._load_npy("TTrain/frame_%04d.npy" % idx)
-                label = self._load_npy("TTrain_label/frame_%04d.npy" % idx)
+
+            image = self._load_npy(
+                os.path.join(TESTING_DATA_LOCATION[TESTING_DATA.index(DATA)], IMAGE_DEFINITION % idx)
+            )
+            label = self._load_npy(
+                os.path.join(TESTING_DATA_MASK_LOCATION[TESTING_DATA.index(DATA)], MASK_DEFINITION % idx)
+            )
 
         if self.transform and TRANSFORM:
             image, label = self.transform(image, label)
@@ -224,7 +229,6 @@ class NPyDataset(Dataset):
     def _load_npy(self, filename):
         filename = os.path.join(self.folder_name, filename)
         return torch.unsqueeze(torch.tensor(np.float32(np.load(filename))), dim=0)
-        # return torch.unsqueeze(torch.tensor(np.float32(np.load(filename)[::2,::2])),dim=0)
 
     def _get_transform(self):
         if self.is_train:
@@ -244,20 +248,34 @@ class NPyDataset(Dataset):
         return None
 
 
-def load_data():
+def train_load_data():
     # training data loader
     train_set = NPyDataset(DATA_PATH)
     train_loader = DataLoader(train_set, batch_size=4, shuffle=True, num_workers=0)
-    # test/validation data loader
+
+    return train_loader
+
+
+def val_load_data():
+    # validation data loader
+    val_set = NPyDataset(DATA_PATH, is_train=False)
+    val_loader = DataLoader(val_set, batch_size=1, shuffle=False, num_workers=0)
+
+    return val_loader
+
+
+def test_load_data():
+    # test data loader
     test_set = NPyDataset(DATA_PATH, is_train=False)
     test_loader = DataLoader(test_set, batch_size=1, shuffle=False, num_workers=0)
 
-    return train_loader, test_loader
+    return test_loader
 
 
 ## training
 def train(load=False):
-    train_loader, test_loader = load_data()
+    train_loader = train_load_data()
+    val_loader = val_load_data()
 
     if not load:
         print("Starting new model")
@@ -290,7 +308,7 @@ def train(load=False):
 
         y_pred_test = np.array([])
         ytest = np.array([])
-        for _, (images, labels) in enumerate(test_loader):
+        for _, (images, labels) in enumerate(val_loader):
 
             images = images.cuda()
             output = model(images)
@@ -358,7 +376,7 @@ def train(load=False):
         ## validation
         y_pred_test = np.array([])
         ytest = np.array([])
-        for _, (images, labels) in enumerate(test_loader):
+        for _, (images, labels) in enumerate(val_loader):
 
             images = images.cuda()
             output = model(images)
@@ -391,7 +409,7 @@ def train(load=False):
             torch.save(
                 {
                     "model": model,
-                    "data": "Phantom" if DATA == "P" or DATA == "Phantom" else "T1-T6",
+                    "data": DATA,
                     "learning_rate": LEARNING_RATE,
                     "pools": POOL,
                     "reverse_pools": str(REVERSE_POOL),
@@ -418,76 +436,74 @@ def train(load=False):
     print("Training done.")
 
 
-def test(other_data):
-    _, test_loader = load_data()
-
+def test():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     whole_model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))
+    print_model_values(whole_model)
 
-    if not other_data:
-        print_model_values(whole_model)
-        if "pools" in whole_model:
-            global POOL
-            POOL = whole_model.get("pools")
+    global POOL
+    POOL = whole_model.get("pools")
 
     if "model" in whole_model:
         model = whole_model["model"]
     else:
         model = whole_model
 
-    data_variable = "Phantom" if DATA == "P" or DATA == "Phantom" else "T1-T6"
-    print("\n\nData testing on: " + data_variable)
+    iou_arr, dc_arr, data_arr = [], [], []
 
-    model = model.to(device)
-    model.eval()
-    y_pred_test = np.array([])
-    ytest = np.array([])
-    iou = []
-    dice_coefficient = []
-    for _, (images, labels) in enumerate(test_loader):
-        images = images.cuda()
-        output = model(images)
-        predicted = np.float32(np.squeeze(output.detach().cpu().numpy(), axis=0) > 0.5)
+    for data in TEST_ON:
+        print("\n\nData testing on: " + TESTING_DATA[data])
+        global DATA
+        DATA = TESTING_DATA[data]
+        data_arr.append(DATA)
 
-        global CREATE_TEST_MASK
-        if CREATE_TEST_MASK:
-            if DATA == "P" or DATA == "Phantom":
-                filepath_to_save = os.path.join(RESULT_PATH, "PTest_test_label.npy")
+        test_loader = test_load_data()
+
+        model = model.to(device)
+        model.eval()
+        y_pred_test = np.array([])
+        ytest = np.array([])
+        iou = []
+        dice_coefficient = []
+
+        mask_create = CREATE_TEST_MASK
+        for _, (images, labels) in enumerate(test_loader):
+            images = images.cuda()
+            output = model(images)
+            predicted = np.float32(np.squeeze(output.detach().cpu().numpy(), axis=0) > 0.5)
+
+            if mask_create:
+                filepath_to_save = os.path.join(RESULT_PATH, DATA + "_test_label.npy")
+                np.save(filepath_to_save, predicted)
+                mask_create = False
+
+            gt = np.squeeze(labels.detach().cpu().numpy(), axis=0)
+            if y_pred_test.size == 0:
+                y_pred_test = predicted
+                ytest = gt
             else:
-                filepath_to_save = os.path.join(RESULT_PATH, "TTest_test_label.npy")
-            np.save(filepath_to_save, predicted)
-            CREATE_TEST_MASK = False
+                y_pred_test = np.concatenate((y_pred_test, predicted), axis=0)
+                ytest = np.concatenate((ytest, gt), axis=0)
 
-        gt = np.squeeze(labels.detach().cpu().numpy(), axis=0)
-        if y_pred_test.size == 0:
-            y_pred_test = predicted
-            ytest = gt
-        else:
-            y_pred_test = np.concatenate((y_pred_test, predicted), axis=0)
-            ytest = np.concatenate((ytest, gt), axis=0)
+            iou_val, dice_coefficient_val = calculate_2d_metrics(gt, predicted)
 
-        iou_val, dice_coefficient_val = calculate_2d_metrics(gt, predicted)
+            iou.append(iou_val)
+            dice_coefficient.append(dice_coefficient_val)
 
-        iou.append(iou_val)
-        dice_coefficient.append(dice_coefficient_val)
+        iou_val, dice_coefficient_val = calculate_average_metrics(ytest, y_pred_test)
+        print("Final IOU:", iou_val)
+        print("Final DC:", dice_coefficient_val)
 
-    # print("Average IOU is:" , sum(iou) / len(iou) )
-    # print("Average DC is:" , sum(dice_coefficient) / len(dice_coefficient) )
-    iou_val, dice_coefficient_val = calculate_average_metrics(ytest, y_pred_test)
-    print("Final IOU:", iou_val)
-    print("Final DC:", dice_coefficient_val)
+        iou_arr.append(iou_val)
+        dc_arr.append(dice_coefficient_val)
 
-    if DATA == "P" or DATA == "Phantom" and not "phantom_IOU" in whole_model:
-        whole_model["phantom_IOU"] = iou_val
-        whole_model["phantom_DC"] = dice_coefficient_val
+    # NEEDS ADJUSTMENT
+    whole_model["tested_on"] = data_arr
+    whole_model["IOU"] = iou_arr
+    whole_model["DC"] = dc_arr
 
-        torch.save(whole_model, os.path.join(RESULT_PATH, "saved_model_pt"))
-    if DATA == "T" or DATA == "T1-T6" and not "T1T6_IOU" in whole_model:
-        whole_model["T1T6_IOU"] = iou_val
-        whole_model["T1T6_DC"] = dice_coefficient_val
-
-        torch.save(whole_model, os.path.join(RESULT_PATH, "saved_model_pt"))
+    torch.save(whole_model, os.path.join(RESULT_PATH, "saved_model_pt"))
 
 
 def print_model_values(whole_model):
@@ -560,17 +576,7 @@ if __name__ == "__main__":
             train()
 
     if TEST:
-        redo_test_mask = False
-        if CREATE_TEST_MASK and TEST_ON_BOTH_DATA:
-            redo_test_mask = True
-
-        test(False)
-
-        if TEST_ON_BOTH_DATA:
-            DATA = "T" if DATA == "P" or DATA == "Phantom" else "P"
-            if redo_test_mask:
-                CREATE_TEST_MASK = True
-            test(True)
+        test()
 
     if CREATE_FOLDER:
         create_folder()

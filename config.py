@@ -1,6 +1,6 @@
-DATA = "P"
+DATA = "Phantom"
 TRAIN = True
-TEST_ON_BOTH_DATA = False
+TEST_ON = [0, 1]
 POOL = 4
 REVERSE_POOL = True
 LEARNING_RATE = 1e-2
@@ -17,11 +17,28 @@ TEST = True
 CREATE_TEST_MASK = True
 
 RESULT_PATH = "./result"
-DATA_PATH = "data"
 
 CREATE_FOLDER = True
 
 NOTIFY = True
+
+# DATA LOADING
+DATA_PATH = "data"
+
+TRAINING_DATA = ["Phantom", "T1T6"]
+TESTING_DATA = ["Phantom", "T1T6"]
+
+TRAINING_DATA_LOCATION = ["PTrain", "TTrain"]
+TESTING_DATA_LOCATION = ["PTest", "TTest"]
+
+TRAINING_DATA_MASK_LOCATION = ["PTrain_label", "TTrain_label"]
+TESTING_DATA_MASK_LOCATION = ["PTest_label", "TTest_label"]
+
+IMAGE_DEFINITION = "frame_%04d.npy"
+MASK_DEFINITION = "frame_%04d.npy"
+
+TRAINING_DATA_COUNT = [1400, 845]
+TESTING_DATA_COUNT = [600, 362]
 
 # Transformations
 TRANSFORM = False

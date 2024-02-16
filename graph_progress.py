@@ -1,9 +1,11 @@
 import openpyxl
 import matplotlib.pyplot as plt
 import mplcursors
+import os
+from config import RESULT_PATH
 
 # Load the workbook
-workbook = openpyxl.load_workbook("./result/progress.xlsx")
+workbook = openpyxl.load_workbook(os.path.join(RESULT_PATH, "progress.xlsx"))
 worksheet = workbook.active
 
 # Initialize lists to store data
