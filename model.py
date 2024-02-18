@@ -616,6 +616,8 @@ def create_folder():
         if data_augmentations == "":
             data_augmentations = "None"
 
+        data_augmentations = data_augmentations.replace("\n", "")
+
         folder_path = os.path.join(
             "models",
             str(whole_model.get("data")),
