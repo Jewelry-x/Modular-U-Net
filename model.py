@@ -42,6 +42,8 @@ class UNet(torch.nn.Module):
         self.encoder4 = UNet._block(n_feat * 4, n_feat * 8)
         self.pool4 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
 
+        self.bottleneck = UNet._block(n_feat * 8, n_feat * 16)
+
         self.upconv4 = torch.nn.ConvTranspose2d(
             n_feat * 16, n_feat * 8, kernel_size=2, stride=2
         )
@@ -63,122 +65,46 @@ class UNet(torch.nn.Module):
             in_channels=n_feat, out_channels=ch_out, kernel_size=1
         )
 
-        if POOL == 4:
-            self.bottleneck = UNet._block(n_feat * 8, n_feat * 16)
-        elif POOL == 3:
-            self.bottleneck = UNet._block(n_feat * 8, n_feat * 8)
-        elif POOL == 2:
-            self.bottleneck = UNet._block(n_feat * 8, n_feat * 8)
-            self.decoder3 = UNet._block((n_feat * 4) * 3, n_feat * 4)
-        elif POOL == 1:
-            self.bottleneck = UNet._block(n_feat * 8, n_feat * 8)
-            self.decoder3 = UNet._block((n_feat * 4) * 3, n_feat * 4)
-            self.decoder2 = UNet._block((n_feat * 2) * 3, n_feat * 2)
-        elif POOL == 0:
-            self.bottleneck = UNet._block(n_feat * 8, n_feat * 8)
-            self.decoder3 = UNet._block((n_feat * 4) * 3, n_feat * 4)
-            self.decoder2 = UNet._block((n_feat * 2) * 3, n_feat * 2)
-            self.decoder1 = UNet._block(n_feat * 3, n_feat)
+        if REVERSE_POOL:
+            if POOL < 4:
+                self.decoder1 = UNet._block(n_feat * 3, n_feat)
+                if POOL < 3:
+                    self.decoder2 = UNet._block((n_feat * 2) * 3, n_feat * 2)
+                    if POOL < 2:
+                        self.decoder3 = UNet._block((n_feat * 4) * 3, n_feat * 4)
+                        if POOL < 1:
+                            self.bottleneck = UNet._block(n_feat * 8, n_feat * 8)
+        else:
+            if POOL < 4:
+                self.bottleneck = UNet._block(n_feat * 8, n_feat * 8)
+                if POOL < 3:
+                    self.decoder3 = UNet._block((n_feat * 4) * 3, n_feat * 4)
+                    if POOL < 2:
+                        self.decoder2 = UNet._block((n_feat * 2) * 3, n_feat * 2)
+                        if POOL < 1:
+                            self.decoder1 = UNet._block(n_feat * 3, n_feat)
 
     def forward(self, x):
-        if POOL == 4:
-            enc1 = self.encoder1(x)
-            enc2 = self.encoder2(self.pool1(enc1))
-            enc3 = self.encoder3(self.pool2(enc2))
-            enc4 = self.encoder4(self.pool3(enc3))
+        enc1 = self.encoder1(x)
+        enc2 = self.encoder2(enc1 if POOL < 4 and REVERSE_POOL == True or POOL < 1 and REVERSE_POOL == False else self.pool1(enc1))
+        enc3 = self.encoder3(enc2 if POOL < 3 and REVERSE_POOL == True or POOL < 2 and REVERSE_POOL == False else self.pool1(enc2))
+        enc4 = self.encoder4(enc3 if POOL < 2 and REVERSE_POOL == True or POOL < 3 and REVERSE_POOL == False else self.pool1(enc3))
 
-            bottleneck = self.bottleneck(self.pool4(enc4))
+        bottleneck = self.bottleneck(enc4 if POOL < 1 and REVERSE_POOL == True or POOL < 4 and REVERSE_POOL == False else self.pool1(enc4))
 
-            dec4 = self.upconv4(bottleneck)
-            dec4 = torch.cat((dec4, enc4), dim=1)
-            dec4 = self.decoder4(dec4)
-            dec3 = self.upconv3(dec4)
-            dec3 = torch.cat((dec3, enc3), dim=1)
-            dec3 = self.decoder3(dec3)
-            dec2 = self.upconv2(dec3)
-            dec2 = torch.cat((dec2, enc2), dim=1)
-            dec2 = self.decoder2(dec2)
-            dec1 = self.upconv1(dec2)
-            dec1 = torch.cat((dec1, enc1), dim=1)
-            dec1 = self.decoder1(dec1)
-            return torch.sigmoid(self.conv(dec1))
-        elif POOL == 3:
-            enc1 = self.encoder1(x)
-            enc2 = self.encoder2(self.pool1(enc1))
-            enc3 = self.encoder3(self.pool2(enc2))
-            enc4 = self.encoder4(self.pool3(enc3))
-
-            bottleneck = self.bottleneck(enc4)
-
-            dec4 = torch.cat((bottleneck, enc4), dim=1)
-            dec4 = self.decoder4(dec4)
-            dec3 = self.upconv3(dec4)
-            dec3 = torch.cat((dec3, enc3), dim=1)
-            dec3 = self.decoder3(dec3)
-            dec2 = self.upconv2(dec3)
-            dec2 = torch.cat((dec2, enc2), dim=1)
-            dec2 = self.decoder2(dec2)
-            dec1 = self.upconv1(dec2)
-            dec1 = torch.cat((dec1, enc1), dim=1)
-            dec1 = self.decoder1(dec1)
-            return torch.sigmoid(self.conv(dec1))
-        elif POOL == 2:
-            enc1 = self.encoder1(x)
-            enc2 = self.encoder2(self.pool1(enc1))
-            enc3 = self.encoder3(self.pool2(enc2))
-            enc4 = self.encoder4(enc3)
-
-            bottleneck = self.bottleneck(enc4)
-
-            dec4 = torch.cat((bottleneck, enc4), dim=1)
-            dec4 = self.decoder4(dec4)
-            dec3 = torch.cat((dec4, enc3), dim=1)
-            dec3 = self.decoder3(dec3)
-            dec2 = self.upconv2(dec3)
-            dec2 = torch.cat((dec2, enc2), dim=1)
-            dec2 = self.decoder2(dec2)
-            dec1 = self.upconv1(dec2)
-            dec1 = torch.cat((dec1, enc1), dim=1)
-            dec1 = self.decoder1(dec1)
-            return torch.sigmoid(self.conv(dec1))
-        elif POOL == 1:
-            enc1 = self.encoder1(x)
-            enc2 = self.encoder2(self.pool1(enc1))
-            enc3 = self.encoder3(enc2)
-            enc4 = self.encoder4(enc3)
-
-            bottleneck = self.bottleneck(enc4)
-
-            dec4 = torch.cat((bottleneck, enc4), dim=1)
-            dec4 = self.decoder4(dec4)
-            dec3 = torch.cat((dec4, enc3), dim=1)
-            dec3 = self.decoder3(dec3)
-            dec2 = torch.cat((dec3, enc2), dim=1)
-            dec2 = self.decoder2(dec2)
-            dec1 = self.upconv1(dec2)
-            dec1 = torch.cat((dec1, enc1), dim=1)
-            dec1 = self.decoder1(dec1)
-            return torch.sigmoid(self.conv(dec1))
-        elif POOL == 0:
-            enc1 = self.encoder1(x)
-            enc2 = self.encoder2(enc1)
-            enc3 = self.encoder3(enc2)
-            enc4 = self.encoder4(enc3)
-
-            bottleneck = self.bottleneck(enc4)
-
-            dec4 = torch.cat((bottleneck, enc4), dim=1)
-            dec4 = self.decoder4(dec4)
-            dec3 = torch.cat((dec4, enc3), dim=1)
-            dec3 = self.decoder3(dec3)
-            dec2 = torch.cat((dec3, enc2), dim=1)
-            dec2 = self.decoder2(dec2)
-            dec1 = torch.cat((dec2, enc1), dim=1)
-            dec1 = self.decoder1(dec1)
-            return torch.sigmoid(self.conv(dec1))
-        else:
-            print("Put valid option for POOL")
-            exit
+        dec4 = bottleneck if POOL < 1 and REVERSE_POOL == True or POOL < 4 and REVERSE_POOL == False else self.upconv4(bottleneck)
+        dec4 = torch.cat((dec4, enc4), dim=1)
+        dec4 = self.decoder4(dec4)
+        dec3 = dec4 if POOL < 2 and REVERSE_POOL == True or POOL < 3 and REVERSE_POOL == False else self.upconv3(dec4)
+        dec3 = torch.cat((dec3, enc3), dim=1)
+        dec3 = self.decoder3(dec3)
+        dec2 = dec3 if POOL < 3 and REVERSE_POOL == True or POOL < 2 and REVERSE_POOL == False else self.upconv2(dec3)
+        dec2 = torch.cat((dec2, enc2), dim=1)
+        dec2 = self.decoder2(dec2)
+        dec1 = dec2 if POOL < 4 and REVERSE_POOL == True or POOL < 1 and REVERSE_POOL == False else self.upconv1(dec2)
+        dec1 = torch.cat((dec1, enc1), dim=1)
+        dec1 = self.decoder1(dec1)
+        return torch.sigmoid(self.conv(dec1))
 
     @staticmethod
     def _block(ch_in, n_feat):
@@ -287,8 +213,8 @@ class NPyDataset(Dataset):
                 image = self._load_npy("PTest/frame_%04d.npy" % idx)
                 label = self._load_npy("PTest_label/frame_%04d.npy" % idx)
             else:
-                image = self._load_npy("TTest/frame_%04d.npy" % idx)
-                label = self._load_npy("TTest_label/frame_%04d.npy" % idx)
+                image = self._load_npy("TTrain/frame_%04d.npy" % idx)
+                label = self._load_npy("TTrain_label/frame_%04d.npy" % idx)
 
         if self.transform and TRANSFORM:
             image, label = self.transform(image, label)
@@ -297,7 +223,6 @@ class NPyDataset(Dataset):
 
     def _load_npy(self, filename):
         filename = os.path.join(self.folder_name, filename)
-        # if self.is_train:
         return torch.unsqueeze(torch.tensor(np.float32(np.load(filename))), dim=0)
         # return torch.unsqueeze(torch.tensor(np.float32(np.load(filename)[::2,::2])),dim=0)
 
@@ -313,12 +238,6 @@ class NPyDataset(Dataset):
                 transformations.append(v2.RandomAffine(0, shear=15))
             if GAUSSIAN_BLUR:
                 transformations.append(v2.GaussianBlur(kernel_size=3))
-            # v2.ColorJitter(brightness=(0.5, 2.0)),
-            # v2.RandomAffine(0, translate=(0.2, 0.2))
-            # v2.Resize(size=(128, 128)),
-            # v2.RandomResizedCrop(size=(128, 128), antialias=True),
-            # v2.Normalize(mean=[0.5], std=[0.5]),
-            # v2.RandomRotation(degrees=10),
 
             if transformations:
                 return v2.Compose(transformations)
@@ -375,13 +294,9 @@ def train(load=False):
 
             images = images.cuda()
             output = model(images)
-            # predicted = np.argmax(np.squeeze(output.detach().cpu().numpy()),axis=0)
-            # predicted = np.float32(np.squeeze(output.detach().cpu().numpy()))
             predicted = np.float32(
                 np.squeeze(output.detach().cpu().numpy(), axis=0) > 0.5
             )
-            # filepath_to_save = os.path.join(RESULT_PATH,"label_test-pt.npy")
-            # np.save(filepath_to_save, predicted)
             gt = np.squeeze(labels.detach().cpu().numpy(), axis=0)
             if y_pred_test.size == 0:
                 y_pred_test = predicted
@@ -447,13 +362,9 @@ def train(load=False):
 
             images = images.cuda()
             output = model(images)
-            # predicted = np.argmax(np.squeeze(output.detach().cpu().numpy()),axis=0)
-            # predicted = np.float32(np.squeeze(output.detach().cpu().numpy()))
             predicted = np.float32(
                 np.squeeze(output.detach().cpu().numpy(), axis=0) > 0.5
             )
-            # filepath_to_save = os.path.join(RESULT_PATH,"label_test-pt.npy")
-            # np.save(filepath_to_save, predicted)
             gt = np.squeeze(labels.detach().cpu().numpy(), axis=0)
             if y_pred_test.size == 0:
                 y_pred_test = predicted
@@ -483,6 +394,7 @@ def train(load=False):
                     "data": "Phantom" if DATA == "P" or DATA == "Phantom" else "T1-T6",
                     "learning_rate": LEARNING_RATE,
                     "pools": POOL,
+                    "reverse_pools": str(REVERSE_POOL),
                     "data_augmentations": augmentations,
                     "image_size": IMAGE_SIZE,
                     "optimizer": type(optimizer).__name__,
@@ -585,6 +497,8 @@ def print_model_values(whole_model):
         print("Learning rate: " + str(whole_model.get("learning_rate")))
     if "pools" in whole_model:
         print("Pooling layers used: " + str(whole_model.get("pools")))
+    if "reverse_pools" in whole_model:
+        print("Were the pooling layers removed in reverse: " + str(whole_model.get("reverse_pools")))
     if "data_augmentations" in whole_model:
         print("Data Augmentations: " + str(whole_model.get("data_augmentations")))
     if "image_size" in whole_model:
@@ -610,6 +524,7 @@ def create_folder():
         and "image_size" in whole_model
         and "learning_rate" in whole_model
         and "pools" in whole_model
+        and "reverse_pools" in whole_model
         and "data_augmentations" in whole_model
     ):
         data_augmentations = whole_model.get("data_augmentations")
@@ -624,6 +539,7 @@ def create_folder():
             str(whole_model.get("optimizer")),
             str(whole_model.get("image_size")),
             str(whole_model.get("learning_rate")),
+            str(whole_model.get("reverse_pools")),
             str(whole_model.get("pools")),
             data_augmentations,
         )
