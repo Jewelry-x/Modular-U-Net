@@ -1,6 +1,7 @@
 DATA = "Phantom"
 TRAIN = True
-LOAD = True
+# If true loads model currently in RESULT_PATH to continue training
+LOAD = False
 TEST = True
 
 # Index of datasets to test on
@@ -8,12 +9,19 @@ TEST_ON = [0, 1]
 
 # If true removes pooling layers from the first convolutional layer, much slower
 REVERSE_POOL = True
+
+# Number of pooling layers that should be used, options include numbers from 0 to 4
 POOL = 4
 
 
 LEARNING_RATE = 1e-2
 TOTAL_EPOCHS = 500
-IMAGE_SIZE = 256
+# Insert manually to save details of the model, no functional purpose
+# If set to 0 the code will automatically set the size itself, which might not work for your case
+IMAGE_SIZE = 0
+
+# How much to reduce the size of the file. 1 is Original, 2 is half size and 4 is 1/4th of the size
+REDUCE_SIZE = 1
 
 # Stop model early if there is no lower IoU than currently saved
 EARLY_STOPPING = True

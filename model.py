@@ -28,7 +28,6 @@ if GAUSSIAN_BLUR:
 
 ## network class
 class UNet(torch.nn.Module):
-
     def __init__(self, ch_in=1, ch_out=1, init_n_feat=32):
         super(UNet, self).__init__()
 
@@ -86,22 +85,54 @@ class UNet(torch.nn.Module):
 
     def forward(self, x):
         enc1 = self.encoder1(x)
-        enc2 = self.encoder2(enc1 if POOL < 4 and REVERSE_POOL == True or POOL < 1 and REVERSE_POOL == False else self.pool1(enc1))
-        enc3 = self.encoder3(enc2 if POOL < 3 and REVERSE_POOL == True or POOL < 2 and REVERSE_POOL == False else self.pool1(enc2))
-        enc4 = self.encoder4(enc3 if POOL < 2 and REVERSE_POOL == True or POOL < 3 and REVERSE_POOL == False else self.pool1(enc3))
+        enc2 = self.encoder2(
+            enc1
+            if POOL < 4 and REVERSE_POOL == True or POOL < 1 and REVERSE_POOL == False
+            else self.pool1(enc1)
+        )
+        enc3 = self.encoder3(
+            enc2
+            if POOL < 3 and REVERSE_POOL == True or POOL < 2 and REVERSE_POOL == False
+            else self.pool1(enc2)
+        )
+        enc4 = self.encoder4(
+            enc3
+            if POOL < 2 and REVERSE_POOL == True or POOL < 3 and REVERSE_POOL == False
+            else self.pool1(enc3)
+        )
 
-        bottleneck = self.bottleneck(enc4 if POOL < 1 and REVERSE_POOL == True or POOL < 4 and REVERSE_POOL == False else self.pool1(enc4))
+        bottleneck = self.bottleneck(
+            enc4
+            if POOL < 1 and REVERSE_POOL == True or POOL < 4 and REVERSE_POOL == False
+            else self.pool1(enc4)
+        )
 
-        dec4 = bottleneck if POOL < 1 and REVERSE_POOL == True or POOL < 4 and REVERSE_POOL == False else self.upconv4(bottleneck)
+        dec4 = (
+            bottleneck
+            if POOL < 1 and REVERSE_POOL == True or POOL < 4 and REVERSE_POOL == False
+            else self.upconv4(bottleneck)
+        )
         dec4 = torch.cat((dec4, enc4), dim=1)
         dec4 = self.decoder4(dec4)
-        dec3 = dec4 if POOL < 2 and REVERSE_POOL == True or POOL < 3 and REVERSE_POOL == False else self.upconv3(dec4)
+        dec3 = (
+            dec4
+            if POOL < 2 and REVERSE_POOL == True or POOL < 3 and REVERSE_POOL == False
+            else self.upconv3(dec4)
+        )
         dec3 = torch.cat((dec3, enc3), dim=1)
         dec3 = self.decoder3(dec3)
-        dec2 = dec3 if POOL < 3 and REVERSE_POOL == True or POOL < 2 and REVERSE_POOL == False else self.upconv2(dec3)
+        dec2 = (
+            dec3
+            if POOL < 3 and REVERSE_POOL == True or POOL < 2 and REVERSE_POOL == False
+            else self.upconv2(dec3)
+        )
         dec2 = torch.cat((dec2, enc2), dim=1)
         dec2 = self.decoder2(dec2)
-        dec1 = dec2 if POOL < 4 and REVERSE_POOL == True or POOL < 1 and REVERSE_POOL == False else self.upconv1(dec2)
+        dec1 = (
+            dec2
+            if POOL < 4 and REVERSE_POOL == True or POOL < 1 and REVERSE_POOL == False
+            else self.upconv1(dec2)
+        )
         dec1 = torch.cat((dec1, enc1), dim=1)
         dec1 = self.decoder1(dec1)
         return torch.sigmoid(self.conv(dec1))
@@ -194,6 +225,17 @@ class NPyDataset(Dataset):
         self.is_train = is_train
         self.transform = self._get_transform()
 
+        if IMAGE_SIZE == 0:
+            image = self._load_npy(
+                os.path.join(
+                    TRAINING_DATA_LOCATION[TRAINING_DATA.index(DATA)],
+                    IMAGE_DEFINITION % 0000,
+                )
+            )
+
+            IMAGE_SIZE = image.shape[1]
+            print(IMAGE_SIZE)
+
     def __len__(self):
         return (
             TRAINING_DATA_COUNT[TRAINING_DATA.index(DATA)]
@@ -210,15 +252,24 @@ class NPyDataset(Dataset):
                 )
             )
             label = self._load_npy(
-                os.path.join(TRAINING_DATA_MASK_LOCATION[TRAINING_DATA.index(DATA)], MASK_DEFINITION % idx)
+                os.path.join(
+                    TRAINING_DATA_MASK_LOCATION[TRAINING_DATA.index(DATA)],
+                    MASK_DEFINITION % idx,
+                )
             )
         else:
 
             image = self._load_npy(
-                os.path.join(TESTING_DATA_LOCATION[TESTING_DATA.index(DATA)], IMAGE_DEFINITION % idx)
+                os.path.join(
+                    TESTING_DATA_LOCATION[TESTING_DATA.index(DATA)],
+                    IMAGE_DEFINITION % idx,
+                )
             )
             label = self._load_npy(
-                os.path.join(TESTING_DATA_MASK_LOCATION[TESTING_DATA.index(DATA)], MASK_DEFINITION % idx)
+                os.path.join(
+                    TESTING_DATA_MASK_LOCATION[TESTING_DATA.index(DATA)],
+                    MASK_DEFINITION % idx,
+                )
             )
 
         if self.transform and TRANSFORM:
@@ -228,7 +279,16 @@ class NPyDataset(Dataset):
 
     def _load_npy(self, filename):
         filename = os.path.join(self.folder_name, filename)
-        return torch.unsqueeze(torch.tensor(np.float32(np.load(filename))), dim=0)
+        if REDUCE_SIZE == 1:
+            return torch.unsqueeze(torch.tensor(np.float32(np.load(filename))), dim=0)
+        if REDUCE_SIZE == 2:
+            return torch.unsqueeze(
+                torch.tensor(np.float32(np.load(filename)[::2, ::2])), dim=0
+            )
+        if REDUCE_SIZE == 4:
+            return torch.unsqueeze(
+                torch.tensor(np.float32(np.load(filename)[::4, ::4])), dim=0
+            )
 
     def _get_transform(self):
         if self.is_train:
@@ -471,7 +531,9 @@ def test():
         for _, (images, labels) in enumerate(test_loader):
             images = images.cuda()
             output = model(images)
-            predicted = np.float32(np.squeeze(output.detach().cpu().numpy(), axis=0) > 0.5)
+            predicted = np.float32(
+                np.squeeze(output.detach().cpu().numpy(), axis=0) > 0.5
+            )
 
             if mask_create:
                 filepath_to_save = os.path.join(RESULT_PATH, DATA + "_test_label.npy")
@@ -514,7 +576,10 @@ def print_model_values(whole_model):
     if "pools" in whole_model:
         print("Pooling layers used: " + str(whole_model.get("pools")))
     if "reverse_pools" in whole_model:
-        print("Were the pooling layers removed in reverse: " + str(whole_model.get("reverse_pools")))
+        print(
+            "Were the pooling layers removed in reverse: "
+            + str(whole_model.get("reverse_pools"))
+        )
     if "data_augmentations" in whole_model:
         print("Data Augmentations: " + str(whole_model.get("data_augmentations")))
     if "image_size" in whole_model:
