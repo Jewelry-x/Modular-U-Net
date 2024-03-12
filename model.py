@@ -225,6 +225,7 @@ class NPyDataset(Dataset):
         self.is_train = is_train
         self.transform = self._get_transform()
 
+        global IMAGE_SIZE
         if IMAGE_SIZE == 0:
             image = self._load_npy(
                 os.path.join(
@@ -499,6 +500,9 @@ def train(load=False):
 def test():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    if not os.path.exists(os.path.join(RESULT_PATH, "saved_model_pt")):
+        print("Model not in correct directory (.result/)")
+        exit()
     whole_model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))
     print_model_values(whole_model)
 
@@ -514,6 +518,7 @@ def test():
 
     for data in TEST_ON:
         print("\n\nData testing on: " + TESTING_DATA[data])
+        print("Current image size: " + str(IMAGE_SIZE))
         global DATA
         DATA = TESTING_DATA[data]
         data_arr.append(DATA)
@@ -620,8 +625,8 @@ def create_folder():
             str(whole_model.get("optimizer")),
             str(whole_model.get("image_size")),
             str(whole_model.get("learning_rate")),
-            str(whole_model.get("reverse_pools")),
             str(whole_model.get("pools")),
+            str(whole_model.get("reverse_pools")),
             data_augmentations,
         )
         if not os.path.exists(folder_path):
