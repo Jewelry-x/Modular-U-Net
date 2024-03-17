@@ -18,14 +18,20 @@ LEARNING_RATE = 1e-2
 TOTAL_EPOCHS = 500
 # Insert manually to save details of the model, no functional purpose
 # If set to 0 the code will automatically set the size itself, which might not work for your case
-IMAGE_SIZE = 0
+TRAIN_IMAGE_SIZE = 0
+TEST_IMAGE_SIZE = 0
 
 # How much to reduce the size of the file. 1 is Original, 2 is half size and 4 is 1/4th of the size
-REDUCE_SIZE = 1
+TRAIN_REDUCE_SIZE = 1
+TEST_REDUCE_SIZE = 1
 
 # Stop model early if there is no lower IoU than currently saved
 EARLY_STOPPING = True
 EARLY_STOPPING_COUNT = 50
+
+# Set a seed so the results are not different
+SET_SEED = True
+SEED = 0
 
 CREATE_TEST_MASK = True
 

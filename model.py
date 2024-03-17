@@ -225,8 +225,9 @@ class NPyDataset(Dataset):
         self.is_train = is_train
         self.transform = self._get_transform()
 
-        global IMAGE_SIZE
-        if IMAGE_SIZE == 0:
+        global TRAIN_IMAGE_SIZE
+
+        if TRAIN_IMAGE_SIZE == 0:
             image = self._load_npy(
                 os.path.join(
                     TRAINING_DATA_LOCATION[TRAINING_DATA.index(DATA)],
@@ -234,8 +235,20 @@ class NPyDataset(Dataset):
                 )
             )
 
-            IMAGE_SIZE = image.shape[1]
-            print(IMAGE_SIZE)
+            TRAIN_IMAGE_SIZE = image.shape[1]
+
+        global TEST_IMAGE_SIZE
+
+        if not is_train:
+            if TEST_IMAGE_SIZE == 0:
+                image = self._load_npy(
+                    os.path.join(
+                        TRAINING_DATA_LOCATION[TRAINING_DATA.index(DATA)],
+                        IMAGE_DEFINITION % 0000,
+                    )
+                )
+
+                TEST_IMAGE_SIZE = image.shape[1]
 
     def __len__(self):
         return (
@@ -280,16 +293,32 @@ class NPyDataset(Dataset):
 
     def _load_npy(self, filename):
         filename = os.path.join(self.folder_name, filename)
-        if REDUCE_SIZE == 1:
-            return torch.unsqueeze(torch.tensor(np.float32(np.load(filename))), dim=0)
-        if REDUCE_SIZE == 2:
-            return torch.unsqueeze(
-                torch.tensor(np.float32(np.load(filename)[::2, ::2])), dim=0
-            )
-        if REDUCE_SIZE == 4:
-            return torch.unsqueeze(
-                torch.tensor(np.float32(np.load(filename)[::4, ::4])), dim=0
-            )
+        if self.is_train:
+            if TRAIN_REDUCE_SIZE == 1:
+                return torch.unsqueeze(
+                    torch.tensor(np.float32(np.load(filename))), dim=0
+                )
+            if TRAIN_REDUCE_SIZE == 2:
+                return torch.unsqueeze(
+                    torch.tensor(np.float32(np.load(filename)[::2, ::2])), dim=0
+                )
+            if TRAIN_REDUCE_SIZE == 4:
+                return torch.unsqueeze(
+                    torch.tensor(np.float32(np.load(filename)[::4, ::4])), dim=0
+                )
+        else:
+            if TEST_REDUCE_SIZE == 1:
+                return torch.unsqueeze(
+                    torch.tensor(np.float32(np.load(filename))), dim=0
+                )
+            if TEST_REDUCE_SIZE == 2:
+                return torch.unsqueeze(
+                    torch.tensor(np.float32(np.load(filename)[::2, ::2])), dim=0
+                )
+            if TEST_REDUCE_SIZE == 4:
+                return torch.unsqueeze(
+                    torch.tensor(np.float32(np.load(filename)[::4, ::4])), dim=0
+                )
 
     def _get_transform(self):
         if self.is_train:
@@ -337,6 +366,13 @@ def test_load_data():
 def train(load=False):
     train_loader = train_load_data()
     val_loader = val_load_data()
+
+    if SET_SEED:
+        torch.manual_seed(SEED)
+        torch.cuda.manual_seed(SEED)
+        torch.cuda.manual_seed_all(SEED)  # if you are using multiple GPUs
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     if not load:
         print("Starting new model")
@@ -475,7 +511,7 @@ def train(load=False):
                     "pools": POOL,
                     "reverse_pools": str(REVERSE_POOL),
                     "data_augmentations": augmentations,
-                    "image_size": IMAGE_SIZE,
+                    "image_size": TRAIN_IMAGE_SIZE,
                     "optimizer": type(optimizer).__name__,
                     "epoch": epoch + 1,
                     "early_stopping": str(EARLY_STOPPING),
@@ -484,6 +520,9 @@ def train(load=False):
                 os.path.join(RESULT_PATH, "saved_model_pt"),
             )
             print("Model Saved Successfully")
+
+            whole_model = torch.load(os.path.join(RESULT_PATH, "saved_model_pt"))
+            print_model_values(whole_model)
 
         update_excel(
             epoch + 1, epoch_train_loss, epoch_val_loss, val_iou, model_saved, worksheet
@@ -518,7 +557,7 @@ def test():
 
     for data in TEST_ON:
         print("\n\nData testing on: " + TESTING_DATA[data])
-        print("Current image size: " + str(IMAGE_SIZE))
+        print("Testing on image size: " + str(TEST_IMAGE_SIZE))
         global DATA
         DATA = TESTING_DATA[data]
         data_arr.append(DATA)
@@ -565,7 +604,6 @@ def test():
         iou_arr.append(iou_val)
         dc_arr.append(dice_coefficient_val)
 
-    # NEEDS ADJUSTMENT
     whole_model["tested_on"] = data_arr
     whole_model["IOU"] = iou_arr
     whole_model["DC"] = dc_arr
@@ -588,7 +626,7 @@ def print_model_values(whole_model):
     if "data_augmentations" in whole_model:
         print("Data Augmentations: " + str(whole_model.get("data_augmentations")))
     if "image_size" in whole_model:
-        print("Image Size: " + str(whole_model.get("image_size")))
+        print("Training Image Size: " + str(whole_model.get("image_size")))
     if "optimizer" in whole_model:
         print("Optimizer: " + str(whole_model.get("optimizer")))
     if "epoch" in whole_model:
