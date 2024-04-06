@@ -556,13 +556,14 @@ def test():
     iou_arr, dc_arr, data_arr = [], [], []
 
     for data in TEST_ON:
-        print("\n\nData testing on: " + TESTING_DATA[data])
-        print("Testing on image size: " + str(TEST_IMAGE_SIZE))
         global DATA
         DATA = TESTING_DATA[data]
         data_arr.append(DATA)
 
         test_loader = test_load_data()
+        print("\n\nData testing on: " + TESTING_DATA[data])
+        print("Current image size: " + str(TEST_IMAGE_SIZE))
+
 
         model = model.to(device)
         model.eval()
